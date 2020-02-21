@@ -22,16 +22,6 @@ def urlgen(year,month,day):
                 ct.append(year[i]+" "+month[j]+" "+day[k])
     return url,ct 
 
-def block (rows): #Needs fixing
-    blocklist=['Ceres','Pluto-Charon','Mors-Somnus','Arawn','Logos','Teharonhiawako','Albion','Altjira','Deucalion','Praamzius','Typhon','Huya']
-    elements=0
-    while(elements<len(blocklist)):
-        if (rows[elements][1]==blocklist[elements]):
-            rows.pop(elements)
-        else:
-            elements+=1
-            continue
-    return rows
 
     
 def process(rows,natal,natalS,ct):
@@ -48,7 +38,7 @@ def process(rows,natal,natalS,ct):
         else:
             rows.pop(types)
             
-#    rows=block(rows)
+
     rows=pretty(rows)
     temp=ac(rows,natal,ct)
     results.append(temp)
