@@ -1,0 +1,11 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: any system
+
+    steps: install all the requirements
+
