@@ -288,3 +288,8 @@ day=['1','10','20']
 [url,ct]=urlgen(year,month,day)
 stars=adddata(url,natal,natalS,ct)
 stars=unpack(stars)
+
+
+with open('results.txt','a+') as f:
+    for i,v in enumerate(stars):
+        f.write(v.tolist()[0]+'\n')
