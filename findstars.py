@@ -3,6 +3,7 @@ import re
 import numpy as np
 import requests
 import itertools
+from functools import reduce
 from bs4 import BeautifulSoup
 import time
 
@@ -36,23 +37,16 @@ def process(rows,natal,natalS,ct):
     results=[]
     types=0
 
+    elements=np.logical_or( rows[:,6]=="SDO",np.logical_or (rows[:,6]=="TNO",rows[:,6]=="Dwarf"))
 
-    while (types<len(rows)):
-
-        if (rows[types][5]=="TNO" or rows[types][5]=="Dwarf" or rows[types][5]=="SDO"):
-            types+=1
-            continue
-            
-        else:
-            rows.pop(types)
-            
 #    rows=block(rows)
-    rows=pretty(rows)
+    rows=rows[elements]
+    rows=pretty(rows,2)
     temp=ac(rows,natal,ct)
     results.append(temp)
 #    temp=acs(rows,natalS,ct)
 #    results.append(temp)
-    results=flatten(results)
+
     return results
 
 def adddata (url,natal,natalS,ct):
@@ -61,12 +55,7 @@ def adddata (url,natal,natalS,ct):
         print("Processing {}th link. Total of {}".format(i,len(url)))
         temp=scrape(url[i])
         temp=process(temp,natal,natalS,ct[i])
-        if (any(temp)):
-            stars.append(temp)
-        else:
-            continue
-
-
+        stars.extend(temp)
     return stars
 
 def scrape(url):
@@ -78,9 +67,13 @@ def scrape(url):
     rows=cleanhtml(rows)
     rows=re.split('\n',rows)
     rows.pop(0)
-    rows.pop(0)
-    rows=chunks(rows,9)
+    # rows.pop(0)
+    rows=np.squeeze(rows)
+    rows=rows.reshape(-1,9)
+
+    # rows=chunks(rows,9)
     time.sleep(1)
+    
     return rows
 
 def chunks(l, n):
@@ -91,79 +84,123 @@ def cleanhtml(raw_html):
   cleantext = re.sub(cleanr, '', raw_html)
   return cleantext
 
+
+def getElement(arr,element):
+    result=np.array([i[element] for i in arr])
+    return result
+
+def procString (ct,transit,natal,ddc,aspect):
+    if ddc.any():
+
+        indexes=np.where(ddc)
+        ct=np.array("{} ".format(ct))
+        bestring=np.array([" is "])
+        
+        spaceID =np.core.defchararray.add(np.take(transit[:,0],ddc[0]).astype('U')," ")
+        
+        asp=np.core.defchararray.add(np.take(transit[:,1],ddc[0]).astype('U'),bestring)
+        asp=np.core.defchararray.add(spaceID,asp)
+        asp=np.core.defchararray.add(ct,asp)
+        asp=np.core.defchararray.add(asp,aspect)
+        asp=np.core.defchararray.add(asp,np.array([" with "]))
+        
+        asp=np.core.defchararray.add(asp,np.take(natal[:,0],ddc[1]).astype('U'))
+        asp=np.unique(asp)
+        print(asp)
+        return asp
+    else:
+        return []
+
+
+def getLogic(*args):
+    args=np.array(args)
+    result=reduce(np.logical_and, args)
+
+
+#    print(result)
+    return result
+
 def ac (transit,natal,ct):
 
+    
     results=[]
-
-#    dd = np.subtract.outer(transit[:][1][0]-natal[:][1][0])
-#    md = np.subtract.outer(transit[:][1][1]-natal[:][1][1])
-#    
-#    
-#    ddcc=np.logical_and(dd==0,md<5)
-#    
-#    ddc30=np.logical_and(dd%30==0,md<5,np.logical_not(ddcc))  
-#    
-#    ddc45=np.logical_and(dd%45==0,md<5,np.logical_not(ddcc))
-#    
-#    ddc60=np.logical_and(dd%120==0,md<5,np.logical_not(ddcc),np.logical_not(ddc30))  
-#    
-#    ddc90=np.logical_and(dd%90==0,md<5,np.logical_not(ddcc),np.logical_not(ddc45),np.logical_not(ddc30))
-#    
-#    ddc120=np.logical_and(dd%120==0,md<5,np.logical_not(ddcc),np.logical_not(ddc30),np.logical_not(ddc60)) 
-#    
-#    ddc135=np.logical_and(dd%135==0,md<5,np.logical_not(ddcc),np.logical_not(ddc45))
-#    
-#    ddc150=np.logical_and(dd%150==0,md<5,np.logical_not(ddcc),np.logical_not(ddc30))   
-#    
-#    ddc180=np.logical_and(dd%180==0,md<5,np.logical_not(ddcc),np.logical_not(ddc60),np.logical_not(ddc45),np.logical_not(ddc90),np.logical_not(ddc30))   
-# 
-#    
-
+    
+    natald=getElement(natal[:,1],0)
+    natalm=getElement(natal[:,1],1)
+    transitd=getElement(transit[:,2],0)
+    transitm=getElement(transit[:,2],1)
+    
+    dd = np.subtract.outer(transitd,natald)
+    md = np.subtract.outer(transitm,natalm)
     
 
+    ddcc=getLogic(np.less(md,5),np.equal(dd,0))
+    ddc180=getLogic(np.equal(np.mod(dd,135),0),np.less(md,5))   
+    ddc150=getLogic(np.equal(np.mod(dd,150),0),np.less(md,5))   
+    ddc135=getLogic(np.equal(np.mod(dd,135),0),np.less(md,5))
+    ddc120=getLogic(np.equal(np.mod(dd,120),0),np.less(md,5)) 
+    ddc90=getLogic(np.equal(np.mod(dd,90),0),np.less(md,5),np.logical_not(ddc180))
+    ddc45=getLogic(np.equal(np.mod(dd,45),0),np.less(md,5),np.logical_not(ddc90),np.logical_not(ddc135)) 
+    ddc60=getLogic(np.equal(np.mod(dd,60),0),np.less(md,5),np.logical_not(ddc180),np.logical_not(ddc120))  
+    ddc30=getLogic(np.equal(np.mod(dd,30),0),np.less(md,5),
+                   np.logical_not(ddc180),np.logical_not(ddc120),
+                   np.logical_not(ddc90),np.logical_not(ddc60),
+                   np.logical_not(ddc150)) 
+    
 
+ 
+    conj=procString(ct,transit,natal,ddcc,'Conjunction')
+    degree30=procString(ct,transit,natal,ddc30,'30 Degree')
+    degree45=procString(ct,transit,natal,ddc45,'45 Degree')
+    sextile=procString(ct,transit,natal,ddc60,'Sextile')
+    semisquare=procString(ct,transit,natal,ddc90,'SemiSquare')
+    triene=procString(ct,transit,natal,ddc120,'Triene')
+    degree135=procString(ct,transit,natal,ddc135,'135 Degree')
+    degree150=procString(ct,transit,natal,ddc150,'150 Degree')
+    opposition=procString(ct,transit,natal,ddc180,"Opposition")
     
-    
-    for i in range (len(transit)):
-        for j in range (len(natal)):
-            dd=abs(transit[i][1][0]-natal[j][1][0])
-            md=abs(transit[i][1][1]-natal[j][1][1])
-            if (dd==0):
-                if (md<5):
-                    aspect='Conjunction'; 
-                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
-                    continue
-            if (dd%180==0):
-                 if (md<5):
-                     aspect= 'Opposition';
-                     results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
-                     continue
-            if (dd%60==0):
-                if (dd%120==0):
-                    if (md<5):
-                        aspect='Triene';
-                        results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
-                        continue
-                elif (md<5):
-                    aspect='Sextile';
-                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
-                    continue
-            if (dd%90==0):
-                if (md<5):
-                    aspect='Square';
-                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
-                    continue
-                
-            if (dd%45==0):
-                if (dd%135==0):
-                    if (md<5):
-                        aspect='135 degree';
-                        results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
-                        continue
-                elif (md<5):
-                    aspect='45 degree';
-                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
-                    continue
+    results.extend([conj,degree30,degree45,sextile,semisquare,triene,degree135,degree150,opposition])
+#    
+#    for i in range (len(transit)):
+#        for j in range (len(natal)):
+#            dd=abs(transit[i][1][0]-natal[j][1][0])
+#            md=abs(transit[i][1][1]-natal[j][1][1])
+#            if (dd==0):
+#                if (md<5):
+#                    aspect='Conjunction'; 
+#                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+#                    continue
+#            if (dd%180==0):
+#                 if (md<5):
+#                     aspect= 'Opposition';
+#                     results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+#                     continue
+#            if (dd%60==0):
+#                if (dd%120==0):
+#                    if (md<5):
+#                        aspect='Triene';
+#                        results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+#                        continue
+#                elif (md<5):
+#                    aspect='Sextile';
+#                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+#                    continue
+#            if (dd%90==0):
+#                if (md<5):
+#                    aspect='Square';
+#                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+#                    continue
+#                
+#            if (dd%45==0):
+#                if (dd%135==0):
+#                    if (md<5):
+#                        aspect='135 degree';
+#                        results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+#                        continue
+#                elif (md<5):
+#                    aspect='45 degree';
+#                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+#                    continue
     return results
 
 def acs (transit,natal,ct):
@@ -197,20 +234,22 @@ def z2d (word):
 
     zodiac={'ar':0,'ta':30, 'ge':60, 'cn':90,'le':120, 'vi':150, 'li':180, 'sc':210,'sa':240,'cp':270,'aq':300,'pi':330}
     angle=[word[0],zodiac[word[1]],word[2],word[3]]
-    result=np.array([int(angle[0])+int(angle[1]),int(angle[2]),int(angle[3])])
+    result=[int(angle[0])+int(angle[1]),int(angle[2]),int(angle[3])]
     return result
     
-def pretty(star):
+def pretty(star,position):
+    if isinstance(star,np.ndarray):
+        star=star.tolist()
     for n in range (len(star)):
-        word=star[n][1]
+        word=star[n][position]
         word=re.sub('\'+', ' ',word)
         word=re.sub('"+', ' ',word)
         word=re.sub(' +', ' ',word)
         word=word.strip()
         word=word.split(" ")
         angle=z2d(word)
-        star[n][1]=angle
-        
+        star[n][position]=angle
+    star=np.array(star)
     return star
 
 def unpack(data):
