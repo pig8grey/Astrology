@@ -1,12 +1,10 @@
+
 import re
 import numpy as np
 import requests
 import itertools
 from bs4 import BeautifulSoup
 import time
-
-
-# This program is done by webscrapping
 
 def flatten(l):
     l=list(itertools.chain(*l))
@@ -22,6 +20,16 @@ def urlgen(year,month,day):
                 ct.append(year[i]+" "+month[j]+" "+day[k])
     return url,ct 
 
+#def block (rows): #Needs fixing
+#    blocklist=['Ceres','Pluto-Charon','Mors-Somnus','Arawn','Logos','Teharonhiawako','Albion','Altjira','Deucalion','Praamzius','Typhon','Huya']
+#    elements=0
+#    while(elements<len(blocklist)):
+#        if (rows[elements][1]==blocklist[elements]):
+#            rows.pop(elements)
+#        else:
+#            elements+=1
+#            continue
+#    return rows
 
     
 def process(rows,natal,natalS,ct):
@@ -38,24 +46,25 @@ def process(rows,natal,natalS,ct):
         else:
             rows.pop(types)
             
-
+#    rows=block(rows)
     rows=pretty(rows)
     temp=ac(rows,natal,ct)
     results.append(temp)
-    temp=acs(rows,natalS,ct)
-    results.append(temp)
+#    temp=acs(rows,natalS,ct)
+#    results.append(temp)
     results=flatten(results)
     return results
 
 def adddata (url,natal,natalS,ct):
     stars=[]
     for i in range(len(url)):
+        print("Processing {}th link. Total of {}".format(i,len(url)))
         temp=scrape(url[i])
         temp=process(temp,natal,natalS,ct[i])
-        if (temp==None or temp==[] or temp==[[]] or temp==[[], []]):
-            continue;
-        else:
+        if (any(temp)):
             stars.append(temp)
+        else:
+            continue
 
 
     return stars
@@ -71,7 +80,6 @@ def scrape(url):
     rows.pop(0)
     rows.pop(0)
     rows=chunks(rows,9)
-      
     time.sleep(1)
     return rows
 
@@ -83,13 +91,39 @@ def cleanhtml(raw_html):
   cleantext = re.sub(cleanr, '', raw_html)
   return cleantext
 
-# 5 minute angle tolerances
-
 def ac (transit,natal,ct):
 
     results=[]
 
+#    dd = np.subtract.outer(transit[:][1][0]-natal[:][1][0])
+#    md = np.subtract.outer(transit[:][1][1]-natal[:][1][1])
+#    
+#    
+#    ddcc=np.logical_and(dd==0,md<5)
+#    
+#    ddc30=np.logical_and(dd%30==0,md<5,np.logical_not(ddcc))  
+#    
+#    ddc45=np.logical_and(dd%45==0,md<5,np.logical_not(ddcc))
+#    
+#    ddc60=np.logical_and(dd%120==0,md<5,np.logical_not(ddcc),np.logical_not(ddc30))  
+#    
+#    ddc90=np.logical_and(dd%90==0,md<5,np.logical_not(ddcc),np.logical_not(ddc45),np.logical_not(ddc30))
+#    
+#    ddc120=np.logical_and(dd%120==0,md<5,np.logical_not(ddcc),np.logical_not(ddc30),np.logical_not(ddc60)) 
+#    
+#    ddc135=np.logical_and(dd%135==0,md<5,np.logical_not(ddcc),np.logical_not(ddc45))
+#    
+#    ddc150=np.logical_and(dd%150==0,md<5,np.logical_not(ddcc),np.logical_not(ddc30))   
+#    
+#    ddc180=np.logical_and(dd%180==0,md<5,np.logical_not(ddcc),np.logical_not(ddc60),np.logical_not(ddc45),np.logical_not(ddc90),np.logical_not(ddc30))   
+# 
+#    
 
+    
+
+
+    
+    
     for i in range (len(transit)):
         for j in range (len(natal)):
             dd=abs(transit[i][1][0]-natal[j][1][0])
@@ -119,9 +153,19 @@ def ac (transit,natal,ct):
                     aspect='Square';
                     results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
                     continue
+                
+            if (dd%45==0):
+                if (dd%135==0):
+                    if (md<5):
+                        aspect='135 degree';
+                        results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+                        continue
+                elif (md<5):
+                    aspect='45 degree';
+                    results.append(ct+" "+transit[i][0]+" is "+aspect+" with "+natal[j][0])
+                    continue
     return results
 
-  
 def acs (transit,natal,ct):
 
     results=[]
@@ -168,6 +212,23 @@ def pretty(star):
         star[n][1]=angle
         
     return star
+
+def unpack(data):
+    
+    goodlist=[]
+    for stuff in data: 
+        
+        if type(stuff) is list:
+            asd=unpack(stuff)
+            for i in asd:
+                goodlist.append(i)
+            
+        else:
+
+            goodlist.append(stuff)
+        
+    return goodlist
+
     
 #Change your Natal Charts Here
 
@@ -187,3 +248,4 @@ month=['1','2','3','4','5','6','7','8','9','10','11','12']
 day=['1','10','20']
 [url,ct]=urlgen(year,month,day)
 stars=adddata(url,natal,natalS,ct)
+stars=unpack(stars)
